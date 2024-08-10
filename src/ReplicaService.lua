@@ -258,11 +258,13 @@ local ReplicaService = {
 
 local RateLimiter = require(Madwork.GetShared("Madwork", "RateLimiter"))
 local Trove = require(script.Parent.Parent.trove)
+local Signal = require(game.ReplicatedStorage.Packages.Signal) -- require(script.Parent.Parent.signal)
 
 ----- Private Variables -----
 
 local DefaultRateLimiter = RateLimiter.Default
 
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -462,8 +464,11 @@ local Replica = {}
 Replica.__index = Replica
 ReplicaService._replica_class = Replica
 
--- Listening:
 -- Listener methods:
+local function encodeTable(table)
+	return HttpService:JSONEncode(table)
+end
+
 function Replica:ListenToChange(path, listener) --> [ScriptConnection] listener(new_value)
 	if type(listener) ~= "function" then
 		error("[ReplicaService]: Only a function can be set as listener in Replica:ListenToChange()")
@@ -473,105 +478,12 @@ function Replica:ListenToChange(path, listener) --> [ScriptConnection] listener(
 	if #path_array < 1 then
 		error("[ReplicaService]: Passed empty path - a value key must be specified")
 	end
-	-- Getting listener table for given path:
-	local listeners = CreateTableListenerPathIndex(self, path_array, 2)
-	table.insert(listeners, listener)
-	-- ScriptConnection which allows the disconnection of the listener:
-	return Madwork.NewArrayScriptConnection(listeners, listener, CleanTableListenerTable, { self._table_listeners, path_array })
-end
 
-function Replica:ListenToNewKey(path, listener) --> [ScriptConnection] listener(new_value, new_key)
-	if type(listener) ~= "function" then
-		error("[ReplicaService]: Only a function can be set as listener in Replica:ListenToNewKey()")
-	end
-
-	local path_array = (type(path) == "string") and StringPathToArray(path) or path
-	-- Getting listener table for given path:
-	local listeners = CreateTableListenerPathIndex(self, path_array, 3)
-	table.insert(listeners, listener)
-	-- ScriptConnection which allows the disconnection of the listener:
-	if #path_array == 0 then
-		return Madwork.NewArrayScriptConnection(listeners, listener)
-	else
-		return Madwork.NewArrayScriptConnection(
-			listeners,
-			listener,
-			CleanTableListenerTable,
-			{ self._table_listeners, path_array }
-		)
-	end
-end
-
-function Replica:ListenToArrayInsert(path, listener) --> [ScriptConnection] listener(new_value, new_index)
-	if type(listener) ~= "function" then
-		error("[ReplicaService]: Only a function can be set as listener in Replica:ListenToArrayInsert()")
-	end
-
-	local path_array = (type(path) == "string") and StringPathToArray(path) or path
-	-- Getting listener table for given path:
-	local listeners = CreateTableListenerPathIndex(self, path_array, 4)
-	table.insert(listeners, listener)
-	-- ScriptConnection which allows the disconnection of the listener:
-	if #path_array == 0 then
-		return Madwork.NewArrayScriptConnection(listeners, listener)
-	else
-		return Madwork.NewArrayScriptConnection(
-			listeners,
-			listener,
-			CleanTableListenerTable,
-			{ self._table_listeners, path_array }
-		)
-	end
-end
-
-function Replica:ListenToArraySet(path, listener) --> [ScriptConnection] listener(new_value, index)
-	if type(listener) ~= "function" then
-		error("[ReplicaService]: Only a function can be set as listener in Replica:ListenToArraySet()")
-	end
-
-	local path_array = (type(path) == "string") and StringPathToArray(path) or path
-	-- Getting listener table for given path:
-	local listeners = CreateTableListenerPathIndex(self, path_array, 5)
-	table.insert(listeners, listener)
-	-- ScriptConnection which allows the disconnection of the listener:
-	if #path_array == 0 then
-		return Madwork.NewArrayScriptConnection(listeners, listener)
-	else
-		return Madwork.NewArrayScriptConnection(
-			listeners,
-			listener,
-			CleanTableListenerTable,
-			{ self._table_listeners, path_array }
-		)
-	end
-end
-
-function Replica:ListenToArrayRemove(path, listener) --> [ScriptConnection] listener(old_value, old_index)
-	if type(listener) ~= "function" then
-		error("[ReplicaService]: Only a function can be set as listener in Replica:ListenToArrayRemove()")
-	end
-
-	local path_array = (type(path) == "string") and StringPathToArray(path) or path
-	-- Getting listener table for given path:
-	local listeners = CreateTableListenerPathIndex(self, path_array, 6)
-	table.insert(listeners, listener)
-	-- ScriptConnection which allows the disconnection of the listener:
-	if #path_array == 0 then
-		return Madwork.NewArrayScriptConnection(listeners, listener)
-	else
-		return Madwork.NewArrayScriptConnection(
-			listeners,
-			listener,
-			CleanTableListenerTable,
-			{ self._table_listeners, path_array }
-		)
-	end
-end
-
-function Replica:ListenToRaw(listener) --> [ScriptConnection] (action_name, params...)
-	local listeners = self._raw_listeners
-	table.insert(listeners, listener)
-	return Madwork.NewArrayScriptConnection(listeners, listener)
+	return self._changed:Connect(function(changedPath, newValue, oldValue)
+		if encodeTable(changedPath) == encodeTable(path_array) then
+			listener(newValue, oldValue)
+		end
+	end)
 end
 
 -- Dictionaries:
@@ -582,7 +494,15 @@ function Replica:SetValue(path, value)
 	for i = 1, #path_array - 1 do
 		pointer = pointer[path_array[i]]
 	end
-	pointer[path_array[#path_array]] = value
+
+	local key = path_array[#path_array]
+	local old_value = pointer[key]
+	pointer[key] = value
+
+	if old_value ~= value then
+		self._changed:Fire(path_array, value, old_value)
+	end
+
 	-- Replicate change:
 	if WriteFunctionFlag == false then
 		local id = self.Id
@@ -595,10 +515,6 @@ function Replica:SetValue(path, value)
 				rev_ReplicaSetValue:FireClient(player, id, path_array, value)
 			end
 		end
-	end
-
-	for _, listener in ipairs(self._raw_listeners) do
-		listener("SetValue", path_array, value)
 	end
 end
 
@@ -625,10 +541,6 @@ function Replica:SetValues(path, values)
 			end
 		end
 	end
-
-	for _, listener in ipairs(self._raw_listeners) do
-		listener("SetValues", path_array, values)
-	end
 end
 
 -- (Numeric) Arrays:
@@ -652,10 +564,6 @@ function Replica:ArrayInsert(path, value) --> new_index
 				rev_ReplicaArrayInsert:FireClient(player, id, path_array, value)
 			end
 		end
-	end
-
-	for _, listener in ipairs(self._raw_listeners) do
-		listener("ArrayInsert", path_array, value)
 	end
 	return #pointer
 end
@@ -685,10 +593,6 @@ function Replica:ArraySet(path, index, value)
 			end
 		end
 	end
-
-	for _, listener in ipairs(self._raw_listeners) do
-		listener("ArraySet", path_array, index, value)
-	end
 end
 
 function Replica:ArrayRemove(path, index) --> removed_value
@@ -711,10 +615,6 @@ function Replica:ArrayRemove(path, index) --> removed_value
 				rev_ReplicaArrayRemove:FireClient(player, id, path_array, index)
 			end
 		end
-	end
-
-	for _, listener in ipairs(self._raw_listeners) do
-		listener("ArrayRemove", path_array, index, removed_value)
 	end
 	return removed_value
 end
@@ -1133,13 +1033,15 @@ function ReplicaService.NewReplica(replica_params) --> [Replica]
 
 		_write_lib = write_lib,
 
-		_table_listeners = {[1] = {}},
+		_table_listeners = { [1] = {} },
 		_function_listeners = {},
-		_raw_listeners = {},
 
 		_signal_listeners = {},
 		_trove = Trove.new(),
 	}
+
+	replica._changed = replica._trove:Add(Signal.new())
+
 	setmetatable(replica, Replica)
 
 	if parent ~= nil then
