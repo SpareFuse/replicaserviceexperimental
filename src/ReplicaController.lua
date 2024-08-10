@@ -96,7 +96,6 @@
 		Replica:IsActive() --> is_active [bool] -- Returns false if the replica was destroyed
 	
 		Replica:AddCleanupTask(task) -- Add cleanup task to be performed
-		Replica:RemoveCleanupTask(task) -- Remove cleanup task
 		
 		* Parameter description for "Replica:AddCleanupTask()":
 		
@@ -160,12 +159,12 @@ do
 	end
 	
 	Madwork = {
-		GetShared = function(package_name, item_name)
+		GetShared = function(_, item_name)
 			-- Ignoring package_name as we're working without Madwork framework
-			return WaitForDescendant(game:GetService("ReplicatedStorage"), item_name, "module")
+			return WaitForDescendant(script.Parent, item_name, "module")
 		end,
-		GetModule = function(package_name, module_name)
-			return WaitForDescendant(game:GetService("ServerScriptService"), module_name, "module")
+		GetModule = function(_, module_name)
+			return WaitForDescendant(script.Parent, module_name, "module")
 		end,
 		SetupRemoteEvent = function(remote_name)
 			if RunService:IsServer() == true then
@@ -212,7 +211,7 @@ local ReplicaController = {
 				_raw_listeners = {listener, ...},
 				
 				_signal_listeners = {},
-				_maid = maid,
+				_trove = trove,
 			}
 		--]]
 	},
@@ -255,7 +254,7 @@ local ReplicaController = {
 
 ----- Loaded Modules -----
 
-local MadworkMaid = require(Madwork.GetShared("Madwork", "MadworkMaid"))
+local Trove = require(script.Parent.Parent.Trove)
 
 ----- Private Variables -----
 
@@ -359,7 +358,7 @@ local function DestroyReplicaAndDescendantsRecursive(replica, not_first_in_stack
 	-- Clear replica entry:
 	Replicas[id] = nil
 	-- Cleanup:
-	replica._maid:Cleanup()
+	replica._trove:Clean()
 	-- Clear from children table of top parent replica:
 	if not_first_in_stack ~= true then
 		if replica.Parent ~= nil then
@@ -467,7 +466,7 @@ local function CreateReplicaBranch(replica_entries, created_replicas) --> create
 			_raw_listeners = {},
 
 			_signal_listeners = {},
-			_maid = MadworkMaid.NewMaid(),
+			_trove = Trove.new(),
 		}
 		setmetatable(replica, Replica)
 		-- Setting as child to parent:
@@ -855,11 +854,7 @@ function Replica:IsActive() --> is_active [bool]
 end
 
 function Replica:AddCleanupTask(task)
-	return self._maid:AddCleanupTask(task)
-end
-
-function Replica:RemoveCleanupTask(task)
-	self._maid:RemoveCleanupTask(task)
+	return self._trove:AddCleanupTask(task)
 end
 
 -- Write function setters: (Calling outside a write function will throw an error)

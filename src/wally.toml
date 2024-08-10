@@ -1,0 +1,9 @@
+[package]
+name = "sparefuse/replicaserviceexperimental"
+version = "0.2.0"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+description = "brittonfischer's ReplicaService fork but with experimental features."
+
+[dependencies]
+trove = "sleitnick/trove@1.4.0"
