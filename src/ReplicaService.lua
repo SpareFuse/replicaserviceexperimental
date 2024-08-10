@@ -258,7 +258,7 @@ local ReplicaService = {
 
 local RateLimiter = require(Madwork.GetShared("Madwork", "RateLimiter"))
 local Trove = require(script.Parent.Parent.trove)
-local Signal = require(game.ReplicatedStorage.Packages.Signal) -- require(script.Parent.Parent.signal)
+local Signal = require(script.Parent.Parent.signal)
 
 ----- Private Variables -----
 
