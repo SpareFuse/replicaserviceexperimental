@@ -254,7 +254,7 @@ local ReplicaController = {
 
 ----- Loaded Modules -----
 
-local Trove = require(script.Parent.Parent.Trove)
+local Trove = require(script.Parent.Parent.trove)
 
 ----- Private Variables -----
 
@@ -854,7 +854,7 @@ function Replica:IsActive() --> is_active [bool]
 end
 
 function Replica:AddCleanupTask(task)
-	return self._trove:AddCleanupTask(task)
+	return self._trove:Add(task)
 end
 
 -- Write function setters: (Calling outside a write function will throw an error)

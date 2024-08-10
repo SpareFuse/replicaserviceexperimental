@@ -257,7 +257,7 @@ local ReplicaService = {
 ----- Loaded Services & Modules -----
 
 local RateLimiter = require(Madwork.GetShared("Madwork", "RateLimiter"))
-local Trove = require(script.Parent.Parent.Trove)
+local Trove = require(script.Parent.Parent.trove)
 
 ----- Private Variables -----
 
