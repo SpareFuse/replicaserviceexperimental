@@ -1,6 +1,6 @@
 [package]
 name = "sparefuse/replicaserviceexperimental"
-version = "2.0.0"
+version = "2.1.0"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
 description = "brittonfischer's ReplicaService fork but with experimental features."
