@@ -479,6 +479,16 @@ function Replica:ListenToChange(path, listener) --> [ScriptConnection] listener(
 		error("[ReplicaService]: Passed empty path - a value key must be specified")
 	end
 
+	local pointer = self.Data
+	for i = 1, #path_array - 1 do
+		pointer = pointer[path_array[i]]
+	end
+
+	local initialValue = pointer[path_array[#path_array]]
+	if initialValue then
+		listener(initialValue, nil)
+	end
+
 	return self._changed:Connect(function(changedPath, newValue, oldValue)
 		if encodeTable(changedPath) == encodeTable(path_array) then
 			listener(newValue, oldValue)
